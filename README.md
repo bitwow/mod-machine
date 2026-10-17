@@ -4,6 +4,8 @@
 
 Автор проекта и интерфейса — **bitwow**.
 
+▶ **[Открыть MOD / MACHINE](https://bitwow.github.io/mod-machine/)**
+
 ## Стек
 
 - React + Vite;
@@ -25,6 +27,8 @@ npm run dev
 AudioWorklet работает на `localhost` или HTTPS. Открытие `index.html` напрямую через `file://` не поддерживается.
 
 ## GitHub Pages
+
+Опубликованная версия: <https://bitwow.github.io/mod-machine/>
 
 1. Создайте репозиторий и отправьте проект в ветку `main`.
 2. В GitHub откройте **Settings → Pages → Source → GitHub Actions**.

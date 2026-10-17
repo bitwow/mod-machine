@@ -8,6 +8,6 @@
 
 В каталоге сейчас девять классических модулей Jogeir Liljedahl. Можно загрузить и собственный `.mod` — файл останется на устройстве и никуда не отправится.
 
-▶ [Открыть MOD / MACHINE]({{LIVE_URL}})
+▶ [Открыть MOD / MACHINE](https://bitwow.github.io/mod-machine/)
 
 — bitwow
