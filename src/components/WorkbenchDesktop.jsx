@@ -76,7 +76,7 @@ export function WorkbenchDesktop({ children, openPanels, onOpenPanel, onClosePan
         <InfoWindow id="about" title="ABOUT" onClose={onClosePanel}>
           <strong>MOD / MACHINE v1.0</strong>
           <p>Amiga-inspired module player for the browser.</p>
-          <small>Built for music and good old machines.</small>
+          <small>Built by <b>bitwow</b> for music and good old machines.</small>
         </InfoWindow>
       ) : null}
 
@@ -100,7 +100,7 @@ export function WorkbenchDesktop({ children, openPanels, onOpenPanel, onClosePan
 
       <footer className="workbench-status">
         <span className="status-disk" aria-hidden="true">▣</span>
-        <strong>MOD / MACHINE READY</strong>
+        <strong>MOD / MACHINE READY · BITWOW</strong>
         <span className="status-message">Выберите модуль или откройте свой файл</span>
         <span>3.7 MB FREE</span>
         <span className="trash-icon" aria-hidden="true">▥</span>
