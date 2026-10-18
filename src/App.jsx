@@ -13,10 +13,21 @@ import { useMobileViewportLock } from './lib/useMobileViewportLock';
 import { useModPlayer } from './lib/useModPlayer';
 
 const sizeStorageKey = 'mod-machine:window-size:v1';
+// ABOUT and README start open only where the desktop has room for them.
+const roomyDesktopQuery = '(min-width: 1101px) and (min-height: 780px)';
 
+// Storage access throws when site data is blocked (privacy modes, embedded frames).
 function getInitialSize() {
-  const saved = window.localStorage.getItem(sizeStorageKey);
-  return ['compact', 'normal', 'wide'].includes(saved) ? saved : 'normal';
+  try {
+    const saved = window.localStorage.getItem(sizeStorageKey);
+    return ['compact', 'normal', 'wide'].includes(saved) ? saved : 'normal';
+  } catch {
+    return 'normal';
+  }
+}
+
+function getInitialPanels() {
+  return new Set(window.matchMedia(roomyDesktopQuery).matches ? ['about', 'readme'] : []);
 }
 
 export default function App() {
@@ -25,12 +36,16 @@ export default function App() {
   const [activeTrack, setActiveTrack] = useState(seedTracks[0]);
   const [sizeMode, setSizeMode] = useState(getInitialSize);
   const [mobilePanel, setMobilePanel] = useState('tracker');
-  const [openPanels, setOpenPanels] = useState(() => new Set(['about', 'readme']));
+  const [openPanels, setOpenPanels] = useState(getInitialPanels);
   const player = useModPlayer();
   useMobileViewportLock();
 
   useEffect(() => {
-    window.localStorage.setItem(sizeStorageKey, sizeMode);
+    try {
+      window.localStorage.setItem(sizeStorageKey, sizeMode);
+    } catch {
+      // The size choice just won't be remembered.
+    }
   }, [sizeMode]);
 
   useEffect(() => {
@@ -163,7 +178,7 @@ export default function App() {
         </footer>
 
         {sampleNames.length > 0 && <div className="sample-ticker" aria-label="Сэмплы модуля">{sampleNames.join(' · ')}</div>}
-        {(player.loading || !player.ready) && <div className="loading-line">LOADING MODULE…</div>}
+        {(player.loading || !player.ready) && !player.error && <div className="loading-line">LOADING MODULE…</div>}
         {player.error && <div className="error-line" role="alert">{player.error}</div>}
       </div>
     </WorkbenchDesktop>

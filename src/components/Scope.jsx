@@ -8,17 +8,25 @@ export function Scope({ analyser, playing, muted, channels = 4 }) {
     if (!canvas) return undefined;
     const context = canvas.getContext('2d');
     const data = new Uint8Array(analyser?.fftSize ?? 256);
+    const animate = Boolean(analyser && playing);
     let frame = 0;
 
     const draw = () => {
+      if (animate) frame = requestAnimationFrame(draw);
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
+      if (!width || !height) return;
+
+      // Canvas sizes are integers: compare rounded values, or fractional DPRs
+      // (1.25, 2.625…) would reallocate the canvas on every frame.
       const ratio = window.devicePixelRatio || 1;
-      if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
-        canvas.width = width * ratio;
-        canvas.height = height * ratio;
-        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      const pixelWidth = Math.round(width * ratio);
+      const pixelHeight = Math.round(height * ratio);
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
       }
+      context.setTransform(pixelWidth / width, 0, 0, pixelHeight / height, 0, 0);
 
       context.fillStyle = '#03111c';
       context.fillRect(0, 0, width, height);
@@ -31,7 +39,7 @@ export function Scope({ analyser, playing, muted, channels = 4 }) {
         context.stroke();
       }
 
-      if (analyser && playing) analyser.getByteTimeDomainData(data);
+      if (animate) analyser.getByteTimeDomainData(data);
       else data.fill(128);
 
       const count = Math.max(1, Math.min(channels, 8));
@@ -62,12 +70,16 @@ export function Scope({ analyser, playing, muted, channels = 4 }) {
         context.textAlign = 'center';
         context.fillText(`CH ${String(channel + 1).padStart(2, '0')}`, left + panelWidth / 2, 14);
       }
-
-      frame = requestAnimationFrame(draw);
     };
 
     draw();
-    return () => cancelAnimationFrame(frame);
+    // Idle scope is static: redraw only when its size changes (window resize, mobile tab switch).
+    const observer = animate ? null : new ResizeObserver(draw);
+    observer?.observe(canvas);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
   }, [analyser, playing, muted, channels]);
 
   return (

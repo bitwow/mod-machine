@@ -17,6 +17,7 @@ export function Mixer({ channels = 4, muted, levels = [], onToggleMute }) {
                 type="button"
                 className="bevel-button mute-button"
                 aria-pressed={isMuted}
+                aria-label={`Заглушить канал ${channel + 1}`}
                 onClick={() => onToggleMute(channel)}
               >
                 {isMuted ? 'ON' : 'MUTE'}

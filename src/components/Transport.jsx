@@ -21,7 +21,16 @@ export function Transport({ playing, loading, current, duration, volume, onPlay,
         </div>
         <div className="seek-control">
           <span>{formatTime(current)}</span>
-          <input type="range" min="0" max={Math.max(1, duration)} step="0.1" value={Math.min(current, duration || 1)} onChange={(event) => onSeek(event.target.value)} />
+          <input
+            type="range"
+            min="0"
+            max={Math.max(1, duration)}
+            step="0.1"
+            value={Math.min(current, duration || 1)}
+            onChange={(event) => onSeek(event.target.value)}
+            aria-label="Позиция в треке"
+            aria-valuetext={`${formatTime(current)} из ${formatTime(duration)}`}
+          />
           <span>{formatTime(duration)}</span>
         </div>
         <label className="volume-control">

@@ -59,44 +59,49 @@ export function WorkbenchDesktop({ children, openPanels, onOpenPanel, onClosePan
         <span className="workbench-depth" aria-hidden="true">◩</span>
       </header>
 
-      <nav className="desktop-icons" aria-label="Рабочий стол">
-        {desktopItems.map((item) => (
-          <DesktopIcon
-            key={item.id}
-            item={item}
-            active={openPanels.has(item.id)}
-            onOpen={onOpenPanel}
-          />
-        ))}
-      </nav>
+      {/* Icons and info windows share one column, so open windows never cover the icons. */}
+      <div className="desktop-sidebar">
+        <nav className="desktop-icons" aria-label="Рабочий стол">
+          {desktopItems.map((item) => (
+            <DesktopIcon
+              key={item.id}
+              item={item}
+              active={openPanels.has(item.id)}
+              onOpen={onOpenPanel}
+            />
+          ))}
+        </nav>
+
+        <div className="desktop-windows">
+          {openPanels.has('ram') ? (
+            <InfoWindow id="ram" title="RAM DISK" onClose={onClosePanel}>
+              <strong>MOD MACHINE:</strong>
+              <p>9 remote modules<br />AudioWorklet engine<br />No files uploaded</p>
+            </InfoWindow>
+          ) : null}
+
+          {openPanels.has('about') ? (
+            <InfoWindow id="about" title="ABOUT" onClose={onClosePanel}>
+              <strong>MOD / MACHINE v1.0</strong>
+              <p>Amiga-inspired module player for the browser.</p>
+              <small>Built by <b>bitwow</b> for music and good old machines.</small>
+            </InfoWindow>
+          ) : null}
+
+          {openPanels.has('readme') ? (
+            <InfoWindow id="readme" title="README" onClose={onClosePanel}>
+              <dl>
+                <div><dt>FILE TYPE</dt><dd>MOD</dd></div>
+                <div><dt>CHANNELS</dt><dd>4</dd></div>
+                <div><dt>FORMAT</dt><dd>PROTRACKER</dd></div>
+              </dl>
+              <p>Choose a module or open your own local file.</p>
+            </InfoWindow>
+          ) : null}
+        </div>
+      </div>
 
       <div className="desktop-stage">{children}</div>
-
-      {openPanels.has('about') ? (
-        <InfoWindow id="about" title="ABOUT" onClose={onClosePanel}>
-          <strong>MOD / MACHINE v1.0</strong>
-          <p>Amiga-inspired module player for the browser.</p>
-          <small>Built by <b>bitwow</b> for music and good old machines.</small>
-        </InfoWindow>
-      ) : null}
-
-      {openPanels.has('readme') ? (
-        <InfoWindow id="readme" title="README" onClose={onClosePanel}>
-          <dl>
-            <div><dt>FILE TYPE</dt><dd>MOD</dd></div>
-            <div><dt>CHANNELS</dt><dd>4</dd></div>
-            <div><dt>FORMAT</dt><dd>PROTRACKER</dd></div>
-          </dl>
-          <p>Choose a module or open your own local file.</p>
-        </InfoWindow>
-      ) : null}
-
-      {openPanels.has('ram') ? (
-        <InfoWindow id="ram" title="RAM DISK" onClose={onClosePanel}>
-          <strong>MOD MACHINE:</strong>
-          <p>9 remote modules<br />AudioWorklet engine<br />No files uploaded</p>
-        </InfoWindow>
-      ) : null}
 
       <footer className="workbench-status">
         <span className="status-disk" aria-hidden="true">▣</span>

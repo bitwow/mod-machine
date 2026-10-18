@@ -36,8 +36,9 @@ export function Tracker({ meta, patternIndex, currentRow, muted }) {
             </div>
           ))}
 
-          {rows.map((row) => (
-            <div className={`tracker-row ${row === currentRow ? 'is-current' : ''}`} key={row}>
+          {rows.map((row, offset) => (
+            // Patterns shorter than the window repeat rows, so key by screen offset.
+            <div className={`tracker-row ${offset === ROW_RADIUS ? 'is-current' : ''}`} key={offset}>
               <span className="row-label">{hex(row, 3)}</span>
               {Array.from({ length: channelCount }, (_, channel) => (
                 <TrackerCell

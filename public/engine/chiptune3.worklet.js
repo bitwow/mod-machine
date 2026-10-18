@@ -27,8 +27,8 @@ libopenmptPromise()
 
 		// set libopenmpt version to display later
 		let stack = libopenmpt.stackSave();
-		libopenmpt.version = libopenmpt.UTF8ToString(libopenmpt._openmpt_get_string(asciiToStack('library_version')));
-		libopenmpt.build = libopenmpt.UTF8ToString(libopenmpt._openmpt_get_string(asciiToStack('build')));
+		libopenmpt.version = takeString(libopenmpt._openmpt_get_string(asciiToStack('library_version')));
+		libopenmpt.build = takeString(libopenmpt._openmpt_get_string(asciiToStack('build')));
 		libopenmpt.stackRestore(stack);
 	})
 	.catch(e => console.error(e))
@@ -40,6 +40,14 @@ function asciiToStack(str) {
 	const stackStr = libopenmpt.stackAlloc(str.length + 1);			// DrS: needed to export in emscripten
 	writeAsciiToMemory(str, stackStr);					// no longer in Emscripten, see below
 	return stackStr;
+}
+// libopenmpt hands out strings it allocated itself; they must be released with
+// openmpt_free_string, otherwise every loaded module leaks them in the WASM heap.
+function takeString(ptr) {
+	if (!ptr) return '';
+	const value = libopenmpt.UTF8ToString(ptr);
+	libopenmpt._openmpt_free_string(ptr);
+	return value;
 }
 function writeAsciiToMemory(str, buffer, dontAddNull) { for (let i = 0; i < str.length; ++i) { libopenmpt.HEAP8[buffer++ >> 0] = str.charCodeAt(i) } if (!dontAddNull) libopenmpt.HEAP8[buffer >> 0] = 0 }
 
@@ -86,6 +94,9 @@ class MPT extends AudioWorkletProcessor {
 		const actualFramesPerChunk = libopenmpt._openmpt_module_read_float_stereo(this.modulePtr, sampleRate, left.length, this.leftPtr, this.rightPtr)
 		if (actualFramesPerChunk == 0) {
 			// modulePtr will be 0 on openmpt: error: openmpt_module_read_float_stereo: ERROR: module * not valid or other openmpt error
+			// Pause so the end (or error) is reported once instead of on every
+			// render quantum; 'setPos' + 'unpause' restarts the module.
+			this.paused = true
 			const error = !this.modulePtr
 			if (error) {
 				this.port.postMessage({ cmd: 'err', val: 'Process' })
@@ -379,11 +390,11 @@ class MPT extends AudioWorkletProcessor {
 		song.channels = chNum;
 		// instruments
 		for (let i = 0, e = libopenmpt._openmpt_module_get_num_instruments(this.modulePtr); i < e; i++) {
-			song.instruments.push(libopenmpt.UTF8ToString(libopenmpt._openmpt_module_get_instrument_name(this.modulePtr, i)));
+			song.instruments.push(takeString(libopenmpt._openmpt_module_get_instrument_name(this.modulePtr, i)));
 		}
 		// samples
 		for (let i = 0, e = libopenmpt._openmpt_module_get_num_samples(this.modulePtr); i < e; i++) {
-			song.samples.push(libopenmpt.UTF8ToString(libopenmpt._openmpt_module_get_sample_name(this.modulePtr, i)));
+			song.samples.push(takeString(libopenmpt._openmpt_module_get_sample_name(this.modulePtr, i)));
 		}
 		// orders
 		for (let i = 0, e = libopenmpt._openmpt_module_get_num_orders(this.modulePtr); i < e; i++) {
@@ -427,11 +438,11 @@ class MPT extends AudioWorkletProcessor {
 			return false;
 
 		const data = {};
-		const keys = libopenmpt.UTF8ToString(libopenmpt._openmpt_module_get_metadata_keys(this.modulePtr)).split(';');
+		const keys = takeString(libopenmpt._openmpt_module_get_metadata_keys(this.modulePtr)).split(';');
 		for (let i = 0; i < keys.length; i++) {
 			const keyNameBuffer = libopenmpt._malloc(keys[i].length + 1);
 			writeAsciiToMemory(keys[i], keyNameBuffer);
-			data[keys[i]] = libopenmpt.UTF8ToString(libopenmpt._openmpt_module_get_metadata(this.modulePtr, keyNameBuffer));
+			data[keys[i]] = takeString(libopenmpt._openmpt_module_get_metadata(this.modulePtr, keyNameBuffer));
 			libopenmpt._free(keyNameBuffer);
 		}
 		data.song = this.getSong();
