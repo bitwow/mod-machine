@@ -36,7 +36,7 @@ function InfoWindow({ id, title, children, onClose }) {
   );
 }
 
-export function WorkbenchDesktop({ children, openPanels, onOpenPanel, onClosePanel }) {
+export function WorkbenchDesktop({ children, stageClassName = '', openPanels, onOpenPanel, onClosePanel }) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export function WorkbenchDesktop({ children, openPanels, onOpenPanel, onClosePan
         </div>
       </div>
 
-      <div className="desktop-stage">{children}</div>
+      <div className={`desktop-stage ${stageClassName}`}>{children}</div>
 
       <footer className="workbench-status">
         <span className="status-disk" aria-hidden="true">▣</span>

@@ -1,4 +1,4 @@
-export function Mixer({ channels = 4, muted, levels = [], onToggleMute }) {
+export function Mixer({ channels = 4, muted, levels = [], disabled = false, onToggleMute }) {
   const visibleChannels = Math.min(Math.max(4, channels), 8);
   return (
     <section className="panel mixer-panel" aria-label="Микшер каналов">
@@ -18,6 +18,7 @@ export function Mixer({ channels = 4, muted, levels = [], onToggleMute }) {
                 className="bevel-button mute-button"
                 aria-pressed={isMuted}
                 aria-label={`Заглушить канал ${channel + 1}`}
+                disabled={disabled}
                 onClick={() => onToggleMute(channel)}
               >
                 {isMuted ? 'ON' : 'MUTE'}

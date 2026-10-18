@@ -42,6 +42,8 @@ export class ChiptuneJsPlayer {
 				})
 				// message port
 				this.processNode.port.onmessage = this.handleMessage_.bind(this)
+				// An exception in process() kills the node for good; say so instead of going silent.
+				this.processNode.onprocessorerror = () => this.fireEvent('onError', { type: 'Process' })
 				this.processNode.port.postMessage({ cmd: 'config', val: this.config })
 				this.fireEvent('onInitialized')
 
@@ -60,7 +62,7 @@ export class ChiptuneJsPlayer {
 		switch (msg.data.cmd) {
 			case 'meta':
 				this.meta = msg.data.meta
-				this.fireEvent('onMetadata', this.meta)
+				this.fireEvent('onMetadata', this.meta, msg.data.id)
 				break
 			case 'pos':
 				//this.meta.pos = msg.data.pos
@@ -75,7 +77,7 @@ export class ChiptuneJsPlayer {
 				this.fireEvent('onEnded')
 				break
 			case 'err':
-				this.fireEvent('onError', { type: msg.data.val })
+				this.fireEvent('onError', { type: msg.data.val, id: msg.data.id })
 				break
 			default:
 				console.log('Received unknown message', msg.data)
@@ -83,12 +85,12 @@ export class ChiptuneJsPlayer {
 	}
 
 	// handlers
-	fireEvent(eventName, response) {
+	fireEvent(eventName, ...args) {
 		const handlers = this.handlers
 		if (handlers.length) {
 			handlers.forEach(function (handler) {
 				if (handler.eventName === eventName) {
-					handler.handler(response)
+					handler.handler(...args)
 				}
 			})
 		}
@@ -119,14 +121,20 @@ export class ChiptuneJsPlayer {
 			reader.readAsArrayBuffer(url);
 		} else {
 			fetch(url)
-				.then(response => response.arrayBuffer())
+				.then(response => {
+					if (!response.ok) throw new Error(`HTTP ${response.status}`)
+					return response.arrayBuffer()
+				})
 				.then(arrayBuffer => this.loadBuffer(arrayBuffer))
 				.catch(e => { this.fireEvent('onError', { type: 'Load' }) })
 		}
 	}
 
-	loadBuffer(val) {
-		this.postMsg('load', val);
+	// The buffer is transferred, not copied: the caller must not reuse it.
+	// `id` is echoed back with the matching 'meta' or 'err' reply.
+	loadBuffer(val, id) {
+		if (this.processNode)
+			this.processNode.port.postMessage({ cmd: 'load', val, id }, [val]);
 	}
 
 	play() {

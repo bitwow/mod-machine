@@ -17,6 +17,7 @@ const EMIT_HZ = 60;
 
 // vars
 let libopenmpt;
+let libopenmptFailed = false;
 
 // init
 libopenmptPromise()
@@ -31,7 +32,11 @@ libopenmptPromise()
 		libopenmpt.build = takeString(libopenmpt._openmpt_get_string(asciiToStack('build')));
 		libopenmpt.stackRestore(stack);
 	})
-	.catch(e => console.error(e))
+	.catch(e => {
+		// Remembered so every load can answer with an error instead of throwing.
+		libopenmptFailed = true;
+		console.error(e);
+	})
 
 //
 // Helpers
@@ -66,7 +71,6 @@ class MPT extends AudioWorkletProcessor {
 			interpolationFilter: 0,	// https://lib.openmpt.org/doc/group__openmpt__module__render__param.html
 		}
 		this.channels = 0
-		this.buffer = []
 
 		// Throttling state. framesPerEmit is the number of audio frames we
 		// accumulate between status messages — derived from sampleRate so the
@@ -162,14 +166,30 @@ class MPT extends AudioWorkletProcessor {
 		applyConfig(libopenmpt, this.modulePtr, this.config);
 	}
 
+	// Any exception here would otherwise vanish inside the worklet and leave the
+	// page waiting for a reply forever, so it is reported back as an error.
 	handleMessage_(msg) {
-		const v = msg.data.val;
-		switch (msg.data.cmd) {
+		try {
+			this.handleCommand_(msg.data);
+		} catch (e) {
+			console.error(e);
+			if (msg.data.cmd === 'load') {
+				this.delete();
+				this.port.postMessage({ cmd: 'err', val: 'Engine', id: msg.data.id });
+			} else {
+				this.port.postMessage({ cmd: 'err', val: 'Engine' });
+			}
+		}
+	}
+
+	handleCommand_(data) {
+		const v = data.val;
+		switch (data.cmd) {
 			case 'config':
 				this.config = v;
 				break
 			case 'load':
-				this.load(v);
+				this.load(v, data.id);
 				break
 			case 'play':
 				this.play();
@@ -191,7 +211,7 @@ class MPT extends AudioWorkletProcessor {
 				libopenmpt._openmpt_module_set_position_order_row(this.modulePtr, v, 0);
 				break
 			case 'meta':
-				this.meta();
+				this.meta(data.id);
 				break
 			case 'repeatCount':
 				this.applyRenderParam('repeatCount', v);
@@ -234,17 +254,22 @@ class MPT extends AudioWorkletProcessor {
 				else this.muteSet.delete(v.channel);
 				break;
 			default:
-				console.log('Received unknown message', msg.data);
+				console.log('Received unknown message', data);
 		}
-	} // handleMessage_
+	} // handleCommand_
 
-	load(buffer) {
+	// `id` comes from the page and is echoed in the reply, so the page can tell
+	// which of several queued loads a 'meta' or 'err' message belongs to.
+	load(buffer, id) {
 
 		this.delete();
-		this.buffer = buffer;
+		if (!libopenmpt) {
+			this.port.postMessage({ cmd: 'err', val: libopenmptFailed ? 'Init' : 'Engine', id });
+			return;
+		}
 
 		const maxFramesPerChunk = 128	// thats what worklet is using
-		const byteArray = new Int8Array(this.buffer)
+		const byteArray = new Int8Array(buffer)
 		const ptrToFile = libopenmpt._malloc(byteArray.byteLength)
 		libopenmpt.HEAPU8.set(byteArray, ptrToFile)
 
@@ -265,10 +290,13 @@ class MPT extends AudioWorkletProcessor {
 
 		if (this.modulePtrExt === 0) {
 			this.modulePtr = 0;
-			this.port.postMessage({ cmd: 'err', val: 'ptr' });
+			this.port.postMessage({ cmd: 'err', val: 'ptr', id });
 			return;
 		}
 		this.modulePtr = libopenmpt._openmpt_module_ext_get_module(this.modulePtrExt);
+		// Play every subsong back to back (as openmpt123 does); otherwise songs
+		// after the first one in multi-song modules are unreachable.
+		libopenmpt._openmpt_module_select_subsong(this.modulePtr, -1);
 
 		this.setupInteractive();
 
@@ -281,7 +309,7 @@ class MPT extends AudioWorkletProcessor {
 		this.paused = true;
 
 		// post back tracks metadata — this populates this.channels via getSong().
-		this.meta();
+		this.meta(id);
 
 		// Now that channel count is known, allocate the packed VU buffer and
 		// reset throttling + mute state so the next process() emits fresh.
@@ -319,7 +347,7 @@ class MPT extends AudioWorkletProcessor {
 	}
 
 	play() {
-		if (!this.buffer)
+		if (!this.modulePtr)
 			return;
 
 		this.paused = false;
@@ -363,8 +391,8 @@ class MPT extends AudioWorkletProcessor {
 		this.framesSinceEmit = 0;
 	}
 
-	meta() {
-		this.port.postMessage({ cmd: 'meta', meta: this.getMeta() });
+	meta(id) {
+		this.port.postMessage({ cmd: 'meta', meta: this.getMeta(), id });
 	}
 
 	getSong() {
@@ -378,7 +406,6 @@ class MPT extends AudioWorkletProcessor {
 			instruments: [],
 			samples: [],
 			orders: [],
-			patterns: [],
 			numSubsongs,
 			subsongNames: this.getSubsongNames(numSubsongs),
 			//tempo: libopenmpt._openmpt_module_get_current_tempo(this.modulePtr)
@@ -400,35 +427,10 @@ class MPT extends AudioWorkletProcessor {
 		for (let i = 0, e = libopenmpt._openmpt_module_get_num_orders(this.modulePtr); i < e; i++) {
 			song.orders.push(libopenmpt._openmpt_module_get_order_pattern(this.modulePtr, i));
 		}
-		// patterns
-		for (let patIdx = 0, patNum = libopenmpt._openmpt_module_get_num_patterns(this.modulePtr); patIdx < patNum; patIdx++) {
-			const pattern = [];
-			// rows
-			for (let rowIdx = 0, rowNum = libopenmpt._openmpt_module_get_pattern_num_rows(this.modulePtr, patIdx); rowIdx < rowNum; rowIdx++) {
-				const row = [];
-				// channels
-				for (let chIdx = 0; chIdx < chNum; chIdx++) {
-					const channel = [];
-					for (let comIdx = 0; comIdx < 6; comIdx++) {
-						/* commands
-						OPENMPT_MODULE_COMMAND_NOTE = 0
-						OPENMPT_MODULE_COMMAND_INSTRUMENT = 1
-						OPENMPT_MODULE_COMMAND_VOLUMEEFFECT = 2
-						OPENMPT_MODULE_COMMAND_EFFECT = 3
-						OPENMPT_MODULE_COMMAND_VOLUME = 4
-						OPENMPT_MODULE_COMMAND_PARAMETER = 5
-						*/
-						channel.push(libopenmpt._openmpt_module_get_pattern_row_channel_command(this.modulePtr, patIdx, rowIdx, chIdx, comIdx));
-					}
-					row.push(channel);
-				}
-				pattern.push(row);
-			}
-			song.patterns.push(pattern);
-		}
-
 		song.totalOrders = song.orders.length;
-		song.totalPatterns = song.patterns.length;
+		// Pattern contents are extracted by patterns.worker.js instead: copying
+		// them here blocked the audio thread for seconds on big modules.
+		song.totalPatterns = libopenmpt._openmpt_module_get_num_patterns(this.modulePtr);
 
 		return song;
 	}

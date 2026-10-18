@@ -38,6 +38,7 @@ export default function App() {
   const [mobilePanel, setMobilePanel] = useState('tracker');
   const [openPanels, setOpenPanels] = useState(getInitialPanels);
   const player = useModPlayer();
+  const { load: loadTrack } = player;
   useMobileViewportLock();
 
   useEffect(() => {
@@ -48,11 +49,10 @@ export default function App() {
     }
   }, [sizeMode]);
 
+  // Initial metadata preload; loadTrack is a stable callback, so this runs once.
   useEffect(() => {
-    player.load(seedTracks[0].source, { autoplay: false });
-    // Initial metadata preload; intentionally only once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    loadTrack(seedTracks[0].source, { autoplay: false });
+  }, [loadTrack]);
 
   const duration = Number(player.meta?.duration ?? player.meta?.dur ?? 0);
   const channels = player.meta?.song?.channels ?? 4;
@@ -115,6 +115,7 @@ export default function App() {
 
   return (
     <WorkbenchDesktop
+      stageClassName={`stage-${sizeMode}`}
       openPanels={openPanels}
       onOpenPanel={openPanel}
       onClosePanel={closePanel}
@@ -140,14 +141,15 @@ export default function App() {
 
         <div className="workspace-grid">
           <Tracker
-            meta={player.meta}
+            channels={player.meta?.song?.channels ?? 4}
+            patterns={player.patterns}
             patternIndex={player.position.pattern ?? 0}
             currentRow={player.position.row ?? 0}
             muted={player.muted}
           />
           <aside className="right-rail">
             <Scope analyser={player.analyser} playing={player.playing} muted={player.muted} channels={channels} />
-            <Mixer channels={channels} muted={player.muted} levels={player.position.chVol} onToggleMute={player.toggleMute} />
+            <Mixer channels={channels} muted={player.muted} levels={player.position.chVol} disabled={!player.meta} onToggleMute={player.toggleMute} />
             <Playlist tracks={tracks} activeId={activeTrack.id} onSelect={selectTrack} />
           </aside>
         </div>

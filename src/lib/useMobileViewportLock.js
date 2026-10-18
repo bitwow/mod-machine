@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 
-const scrollableSelector = '.tracker-scroll, .playlist-panel ol';
+const scrollableSelector = '.tracker-scroll, .playlist-panel ol, .mixer-channels';
+// Same condition as the mobile @media block in styles.css (phones in either orientation).
+const mobileLayoutQuery = '(max-width: 720px), (max-height: 520px) and (pointer: coarse)';
 
 export function useMobileViewportLock() {
   const touchStart = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    const isMobile = () => window.matchMedia('(max-width: 720px)').matches;
+    const isMobile = () => window.matchMedia(mobileLayoutQuery).matches;
 
     const handleTouchStart = (event) => {
       touchStart.current = {

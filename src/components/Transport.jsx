@@ -28,6 +28,7 @@ export function Transport({ playing, loading, current, duration, volume, onPlay,
             step="0.1"
             value={Math.min(current, duration || 1)}
             onChange={(event) => onSeek(event.target.value)}
+            disabled={loading || !duration}
             aria-label="Позиция в треке"
             aria-valuetext={`${formatTime(current)} из ${formatTime(duration)}`}
           />

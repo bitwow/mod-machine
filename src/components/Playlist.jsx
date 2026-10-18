@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 function handlePlaylistWheel(event) {
   const list = event.currentTarget;
   const maxScroll = list.scrollHeight - list.clientHeight;
@@ -16,10 +18,20 @@ function handlePlaylistWheel(event) {
 }
 
 export function Playlist({ tracks, activeId, onSelect }) {
+  const listRef = useRef(null);
+
+  // React's onWheel is passive, so its preventDefault() is ignored and the list
+  // scrolled twice per notch; a native non-passive listener really takes over.
+  useEffect(() => {
+    const list = listRef.current;
+    list?.addEventListener('wheel', handlePlaylistWheel, { passive: false });
+    return () => list?.removeEventListener('wheel', handlePlaylistWheel);
+  }, []);
+
   return (
     <section className="panel playlist-panel" aria-label="Список модулей">
       <div className="panel-title">PLAYLIST</div>
-      <ol onWheel={handlePlaylistWheel}>
+      <ol ref={listRef}>
         {tracks.map((track, index) => (
           <li key={track.id}>
             <button type="button" className={track.id === activeId ? 'is-active' : ''} onClick={() => onSelect(track)}>
